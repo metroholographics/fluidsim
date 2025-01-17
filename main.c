@@ -1,7 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#define WIDTH 800
+#define WIDTH 900
 #define HEIGHT 600
 #define CELL_SIZE 20
 #define COLS (WIDTH / CELL_SIZE)
@@ -15,14 +15,14 @@ typedef enum cell_types {
 	EMPTY=0,
 	WALL,
 	WATER
-} cell_types;
+} cell_type;
 
 typedef struct Cell {
-	int type;
+	cell_type type;
 	SDL_FRect cell;
 } cell;
 
-void init_cells(cell cells[][COLS])
+void init_cell_grid(cell cells[][COLS])
 {
 	for (int i = 0; i < ROWS; i++) {
 		for (int j = 0; j < COLS; j++) {
@@ -32,6 +32,15 @@ void init_cells(cell cells[][COLS])
 				.w = CELL_SIZE,
 				.h = CELL_SIZE
 			};
+			cells[i][j].type = EMPTY;
+		}
+	}
+}
+
+void reset_cells(cell cells[][COLS])
+{
+	for (int i = 0; i < ROWS; i++) {
+		for (int j =0; j < COLS; j++) {
 			cells[i][j].type = EMPTY;
 		}
 	}
@@ -74,12 +83,14 @@ int main(int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
+	printf("~~fluidsim~~\nSPACE: Switch Wall/Water cell\nL-Mouse: Draw\nR-Mouse: Delete\n'r': Reset\n");
+
 	SDL_Window* window;
 	SDL_Renderer* renderer;
 	cell cells[ROWS][COLS];
-	int selected_cell = WALL;
+	cell_type selected_cell = WALL;
 
-	init_cells(cells);
+	init_cell_grid(cells);
 
 	SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 
@@ -94,6 +105,7 @@ int main(int argc, char* argv[])
 
 	bool running = true;
 	SDL_Event e;
+
 	while (running) {
 		SDL_SetRenderDrawColor(renderer, COLOR_BLACK);
 		SDL_RenderClear(renderer);
@@ -104,27 +116,23 @@ int main(int argc, char* argv[])
 					running = false;
 					break;
 				case SDL_EVENT_MOUSE_MOTION:
-					if (mouse_in_bounds(e.motion.x, e.motion.y))  {
+					if (mouse_in_bounds(e.motion.x, e.motion.y)) {
 						int c_x = e.motion.x / CELL_SIZE;
 						int c_y = e.motion.y / CELL_SIZE;
 						if (e.motion.state == SDL_BUTTON_LMASK) {
-							printf("LEFT\n");
 							cells[c_y][c_x].type = selected_cell;
 						} else if (e.motion.state == SDL_BUTTON_RMASK) {
-							printf("RIGHT\n");
 							cells[c_y][c_x].type = EMPTY;
 						}
 					}
 					break;
 				case SDL_EVENT_MOUSE_BUTTON_DOWN:
-					if (mouse_in_bounds(e.button.x, e.button.y))  {
+					if (mouse_in_bounds(e.button.x, e.button.y)) {
 						int c_x = e.button.x / CELL_SIZE;
 						int c_y = e.button.y / CELL_SIZE;
 						if (e.button.down && e.button.button == SDL_BUTTON_LEFT) {
-							printf("LEFT\n");
 							cells[c_y][c_x].type = selected_cell;
 						} else if (e.button.down && e.button.button == SDL_BUTTON_RIGHT) {
-							printf("RIGHT\n");
 							cells[c_y][c_x].type = EMPTY;
 						}
 					}
@@ -133,6 +141,11 @@ int main(int argc, char* argv[])
 					if (e.key.key == SDLK_SPACE) {
 						selected_cell = (selected_cell == WALL) ? WATER : WALL;
 					}
+					if (e.key.key == SDLK_R) {
+						reset_cells(cells);
+					}
+					break;
+				default:
 					break;
 			}
 		}
