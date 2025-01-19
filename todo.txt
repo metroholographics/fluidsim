@@ -2,3 +2,5 @@
 * Draw grid
 * Store array of cells
 * Add create/destroy cells with mouse (wall and water)
+* Draw water in tile based on fill level
+- Water flowing dowm
