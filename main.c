@@ -3,7 +3,7 @@
 
 #define WIDTH 900
 #define HEIGHT 600
-#define CELL_SIZE 50
+#define CELL_SIZE 20
 #define COLS (WIDTH / CELL_SIZE)
 #define ROWS (HEIGHT / CELL_SIZE)
 #define COLOR_GRAY 50, 50, 50, 255
@@ -58,31 +58,25 @@ void update_sim_state(cell c[][COLS])
 		}
 	}
 
-	/* :: todo: fix this */
+	/* ::todo- understand why checking belows fill level is less than 0 works */
 
 	for (int y = 0; y < ROWS; y++) {
 		for (int x = 0; x < COLS; x++) {
 			double focus_fill = flow_matrix[y][x];
 			if (y < ROWS - 1 && focus_fill > 0.0f) {
-				double below_fill = flow_matrix[y+1][x];
-				if (c[y+1][x].type != WALL) {
+				if (c[y+1][x].type != WALL && c[y+1][x].fill_level < 1.0f) {
+					double below_fill = flow_matrix[y+1][x];
 					double total_fill = focus_fill + below_fill;
 					double overflow = 1.0f - total_fill;
 					if (overflow < 0.0f) {
-						flow_matrix[y][x] = overflow;
-						flow_matrix[y+1][x] = 1.0f; 
+						c[y][x].fill_level = overflow * -1.0f;
+						c[y+1][x].fill_level = 1.0f; 
 					} else {
-						flow_matrix[y][x] = 0.0f;
-						flow_matrix[y+1][x] = total_fill;
+						c[y][x].fill_level = 0.0f;
+						c[y+1][x].fill_level += total_fill;
 					}
 				}
 			}
-		}
-	}
-
-	for (int i = 0; i < ROWS; i++) {
-		for (int j = 0; j < COLS; j++) {
-			c[i][j].fill_level = flow_matrix[i][j];
 		}
 	}
 }
