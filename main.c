@@ -50,33 +50,75 @@ void reset_cells(cell cells[][COLS])
 
 void update_sim_state(cell c[][COLS])
 {
-	double flow_matrix[ROWS][COLS];
+	cell next_state[ROWS][COLS];
 
 	for (int i = 0; i < ROWS; i++) {
 		for (int j = 0; j < COLS; j++) {
-			flow_matrix[i][j] = c[i][j].fill_level;
+			next_state[i][j] = c[i][j];
 		}
 	}
 
-	/* ::todo- understand why checking belows fill level is less than 0 works */
+	/*Rule1: If current cell has water and below cell is water type and has less water than current cell,
+			water falls down
+	  Rule2: If current cell has water and below cell has more or equal water, or is a wall or the end, 
+	  		disperse 1/3rd of the current fill Left and Right (if not Wall, Full, or edge columns
+	  Rule3: If current cell has more liquid than max_amount, it pushes that amount upwards*/
+
+	double max_fill_level = 1.3f;
 
 	for (int y = 0; y < ROWS; y++) {
 		for (int x = 0; x < COLS; x++) {
-			double focus_fill = flow_matrix[y][x];
-			if (y < ROWS - 1 && focus_fill > 0.0f) {
-				if (c[y+1][x].type != WALL && c[y+1][x].fill_level < 1.0f) {
-					double below_fill = flow_matrix[y+1][x];
-					double total_fill = focus_fill + below_fill;
-					double overflow = 1.0f - total_fill;
-					if (overflow < 0.0f) {
-						c[y][x].fill_level = overflow * -1.0f;
-						c[y+1][x].fill_level = 1.0f; 
-					} else {
-						c[y][x].fill_level = 0.0f;
-						c[y+1][x].fill_level += total_fill;
+			cell focus_cell = c[y][x];
+
+			bool rule_1 = false;
+			if (y < ROWS-1 && focus_cell.fill_level > 0.0f) {
+				rule_1 = c[y+1][x].type != WALL && c[y+1][x].fill_level < max_fill_level;
+			}
+
+			bool rule_2 = false;
+			if (y < ROWS-1 && focus_cell.fill_level > 0.0f) {
+				rule_2 = (focus_cell.fill_level > 0.0f) && (c[y+1][x].fill_level >= focus_cell.fill_level || 
+					c[y+1][x].type == WALL);
+			} else if (y == ROWS - 1 && focus_cell.fill_level > 0.0f) {
+				rule_2 = true;
+			}
+
+			bool rule_3 = false;
+			if (y > 0 && focus_cell.fill_level > max_fill_level) {
+				rule_3 = true;
+			}
+
+			if (rule_1) {
+				next_state[y][x].fill_level = 0.0f;
+				next_state[y+1][x].fill_level = c[y][x].fill_level;
+			} else if (rule_2) {
+				double split_amount = next_state[y][x].fill_level / 3.0f;
+				if (x > 0) {
+					if (c[y][x-1].type != WALL) {
+						next_state[y][x].fill_level -= split_amount;
+						next_state[y][x-1].fill_level += split_amount;
 					}
 				}
+
+				if (x < COLS - 1) {
+					if (c[y][x+1].type != WALL) {
+						next_state[y][x].fill_level -= split_amount;
+						next_state[y][x+1].fill_level += split_amount;
+					}
+				}
+			} else if (rule_3) {
+				if (x > 0) {
+					double diff = next_state[y][x].fill_level - max_fill_level;
+					next_state[y-1][x].fill_level += diff;
+					next_state[y][x].fill_level -= diff;
+				}
 			}
+		}
+	}
+
+	for (int i = 0; i < ROWS; i++) {
+		for (int j = 0; j < COLS; j++) {
+			c[i][j] = next_state[i][j];
 		}
 	}
 }
@@ -140,7 +182,7 @@ int main(int argc, char* argv[])
 	SDL_Renderer* renderer;
 	cell cells[ROWS][COLS];
 	cell_type selected_cell = WALL;
-	float default_fill = 0.3f;
+	float default_fill = 1.0f;
 
 	init_cell_grid(cells);
 
