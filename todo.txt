@@ -4,5 +4,7 @@
 * Add create/destroy cells with mouse (wall and water)
 * Draw water in tile based on fill level
 * Water flowing dowm
-~ Improve water flowing down logic (rule 1)
-~ Water flowing left and right (rule 2)
+* Improve water flowing down logic (rule 1)
+* Water flowing left and right (rule 2)
+- Figure out pressure
+- Tweak rendering (colour vs size??)

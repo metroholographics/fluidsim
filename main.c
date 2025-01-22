@@ -65,54 +65,72 @@ void update_sim_state(cell c[][COLS])
 	  Rule3: If current cell has more liquid than max_amount, it pushes that amount upwards*/
 
 	double max_fill_level = 1.3f;
+	double compression = 0.02;
 
 	for (int y = 0; y < ROWS; y++) {
 		for (int x = 0; x < COLS; x++) {
 			cell focus_cell = c[y][x];
+			double focus_fill = focus_cell.fill_level;
+
+			if (focus_cell.type == WALL) continue;
 
 			bool rule_1 = false;
 			if (y < ROWS-1 && focus_cell.fill_level > 0.0f) {
-				rule_1 = c[y+1][x].type != WALL && c[y+1][x].fill_level < max_fill_level;
-			}
-
-			bool rule_2 = false;
-			if (y < ROWS-1 && focus_cell.fill_level > 0.0f) {
-				rule_2 = (focus_cell.fill_level > 0.0f) && (c[y+1][x].fill_level >= focus_cell.fill_level || 
-					c[y+1][x].type == WALL);
-			} else if (y == ROWS - 1 && focus_cell.fill_level > 0.0f) {
-				rule_2 = true;
+				rule_1 = c[y+1][x].type != WALL;
 			}
 
 			bool rule_3 = false;
-			if (y > 0 && focus_cell.fill_level > max_fill_level) {
+			if (y > 0 ) {
 				rule_3 = true;
 			}
 
 			if (rule_1) {
-				next_state[y][x].fill_level = 0.0f;
-				next_state[y+1][x].fill_level = c[y][x].fill_level;
-			} else if (rule_2) {
-				double split_amount = next_state[y][x].fill_level / 3.0f;
-				if (x > 0) {
-					if (c[y][x-1].type != WALL) {
-						next_state[y][x].fill_level -= split_amount;
-						next_state[y][x-1].fill_level += split_amount;
-					}
-				}
+				cell below_cell = c[y+1][x];
+				if (below_cell.fill_level < max_fill_level) {
+					double diff_needed = max_fill_level - below_cell.fill_level;
 
-				if (x < COLS - 1) {
-					if (c[y][x+1].type != WALL) {
-						next_state[y][x].fill_level -= split_amount;
-						next_state[y][x+1].fill_level += split_amount;
-					}
-				}
-			} else if (rule_3) {
-				if (x > 0) {
-					double diff = next_state[y][x].fill_level - max_fill_level;
-					next_state[y-1][x].fill_level += diff;
-					next_state[y][x].fill_level -= diff;
-				}
+					double transfer = focus_fill - diff_needed;
+					transfer = (transfer < 0.0f) ? focus_fill : diff_needed;
+
+					next_state[y][x].fill_level -= transfer;
+					next_state[y+1][x].fill_level += transfer;
+					focus_fill -= transfer;
+				} 
 			}
+
+			if (focus_fill <= 0.0f) continue;
+
+			/*rule 2*/
+			double split_amount = focus_fill / 3.0f;
+			double fill_copy = focus_fill;
+			if (x > 0) {
+				if (c[y][x-1].type != WALL && c[y][x-1].fill_level < focus_fill) {
+			 		next_state[y][x].fill_level -= split_amount;
+			 		next_state[y][x-1].fill_level += split_amount;
+			 		fill_copy -= split_amount;
+			 	}
+			}
+
+			 if (x < COLS - 1) {
+			 	if (c[y][x+1].type != WALL && c[y][x+1].fill_level < focus_fill) {
+			 		next_state[y][x].fill_level -= split_amount;
+			 		next_state[y][x+1].fill_level += split_amount;
+			 		fill_copy -= split_amount;
+			 	}
+			}
+
+			// focus_fill = fill_copy;
+
+			// if (rule_3) {
+			// 	cell above_cell = c[y-1][x];
+			// 	double above_target = 1.0f - focus_fill;
+			// 	if (above_cell.fill_level < above_target) {
+			// 		double diff = above_target - above_cell.fill_level;
+			// 		next_state[y][x].fill_level -= diff;
+			// 		next_state[y-1][x].fill_level += diff;
+			// 		focus_fill -= diff;
+			// 	}
+			// }
 		}
 	}
 
@@ -126,6 +144,11 @@ void update_sim_state(cell c[][COLS])
 SDL_FRect get_water_tile(cell c) {
 	/*Return properties for a water tile based on position and fill level of passed cell*/
 	double fill = c.fill_level;
+
+	if (fill > 1.0f) {
+		fill = 1.0f;
+	}
+
 	double empty = 1.0f - fill;
 
 	SDL_FRect r = (SDL_FRect) {
@@ -134,6 +157,8 @@ SDL_FRect get_water_tile(cell c) {
 		.w = c.cell.w,
 		.h = fill * c.cell.h 
 	};
+
+
 
 	return r;
 }
