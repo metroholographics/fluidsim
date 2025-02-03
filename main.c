@@ -3,7 +3,7 @@
 
 #define WIDTH 900
 #define HEIGHT 600
-#define CELL_SIZE 20
+#define CELL_SIZE 30
 #define COLS (WIDTH / CELL_SIZE)
 #define ROWS (HEIGHT / CELL_SIZE)
 #define COLOR_GRAY 50, 50, 50, 255
@@ -75,13 +75,11 @@ void update_sim_state(cell c[][COLS])
 			if (focus_cell.type == WALL) continue;
 
 			bool rule_1 = false;
+			bool rule_2 = y > 0;
+			bool rule_3 = true;
+
 			if (y < ROWS-1 && focus_cell.fill_level > 0.0f) {
 				rule_1 = c[y+1][x].type != WALL;
-			}
-
-			bool rule_3 = false;
-			if (y > 0 ) {
-				rule_3 = true;
 			}
 
 			if (rule_1) {
@@ -95,42 +93,45 @@ void update_sim_state(cell c[][COLS])
 					next_state[y][x].fill_level -= transfer;
 					next_state[y+1][x].fill_level += transfer;
 					focus_fill -= transfer;
+					rule_2 = false;
+					rule_3 = false;
 				} 
 			}
 
-			if (focus_fill <= 0.0f) continue;
-
-			/*rule 2*/
-			double split_amount = focus_fill / 3.0f;
-			double fill_copy = focus_fill;
-			if (x > 0) {
-				if (c[y][x-1].type != WALL && c[y][x-1].fill_level < focus_fill) {
-			 		next_state[y][x].fill_level -= split_amount;
-			 		next_state[y][x-1].fill_level += split_amount;
-			 		fill_copy -= split_amount;
-			 	}
+			if (rule_2) {
+				if (focus_fill >= max_fill_level) {
+					double diff = focus_fill - 1.0f;
+					next_state[y][x].fill_level -= diff;
+					next_state[y-1][x].fill_level += diff;
+					focus_fill -= diff;
+					rule_3 = false;
+				}
 			}
 
-			 if (x < COLS - 1) {
-			 	if (c[y][x+1].type != WALL && c[y][x+1].fill_level < focus_fill) {
-			 		next_state[y][x].fill_level -= split_amount;
-			 		next_state[y][x+1].fill_level += split_amount;
-			 		fill_copy -= split_amount;
-			 	}
+			/*rule 3*/
+			if (rule_3) {
+				double split_amount = focus_fill / 3.0f;
+				double fill_copy = focus_fill;
+
+				if (x > 0) {
+					if (c[y][x-1].type != WALL && c[y][x-1].fill_level < focus_fill) {
+				 		next_state[y][x].fill_level -= split_amount;
+				 		next_state[y][x-1].fill_level += split_amount;
+				 		fill_copy -= split_amount;
+				 	}
+				}
+
+				 if (x < COLS - 1) {
+				 	if (c[y][x+1].type != WALL && c[y][x+1].fill_level < focus_fill) {
+				 		next_state[y][x].fill_level -= split_amount;
+				 		next_state[y][x+1].fill_level += split_amount;
+				 		fill_copy -= split_amount;
+				 	}
+				}
+
+				focus_fill = fill_copy;
 			}
 
-			// focus_fill = fill_copy;
-
-			// if (rule_3) {
-			// 	cell above_cell = c[y-1][x];
-			// 	double above_target = 1.0f - focus_fill;
-			// 	if (above_cell.fill_level < above_target) {
-			// 		double diff = above_target - above_cell.fill_level;
-			// 		next_state[y][x].fill_level -= diff;
-			// 		next_state[y-1][x].fill_level += diff;
-			// 		focus_fill -= diff;
-			// 	}
-			// }
 		}
 	}
 
@@ -158,8 +159,6 @@ SDL_FRect get_water_tile(cell c) {
 		.h = fill * c.cell.h 
 	};
 
-
-
 	return r;
 }
 
@@ -174,11 +173,29 @@ void draw_cells(SDL_Renderer* renderer, cell grid[][COLS])
 					SDL_RenderFillRect(renderer, &c.cell);
 					break;
 				case WATER: {
-					SDL_SetRenderDrawColor(renderer, COLOR_GRAY);
-					SDL_RenderRect(renderer, &c.cell);
-					SDL_FRect water_tile = get_water_tile(c);
-					SDL_SetRenderDrawColor(renderer, COLOR_BLUE);
-					SDL_RenderFillRect(renderer, &water_tile);
+					if (c.fill_level >= 1.3f) {
+						SDL_SetRenderDrawColor(renderer, 0, 80, 115, 255);
+					} else if (c.fill_level >= 0.7f) {
+						SDL_SetRenderDrawColor(renderer, 16, 125, 172, 255);
+					} else if (c.fill_level >= 0.5f) {
+						SDL_SetRenderDrawColor(renderer, 24, 154, 211, 255);
+					} else if (c.fill_level >= 0.3f) {
+						SDL_SetRenderDrawColor(renderer, 30, 187, 215, 255);
+					} else if (c.fill_level > 0.1f) {
+						SDL_SetRenderDrawColor(renderer, 113, 199, 236, 255);
+					} else {
+						SDL_SetRenderDrawColor(renderer, COLOR_GRAY);
+					}
+
+					if (c.fill_level > 0.1f) {
+						SDL_RenderFillRect(renderer, &c.cell);
+					} else {
+						SDL_RenderRect(renderer, &c.cell);
+					}
+					
+					// SDL_FRect water_tile = get_water_tile(c);
+					// SDL_SetRenderDrawColor(renderer, COLOR_BLUE);
+					// SDL_RenderFillRect(renderer, &water_tile);
 				}
 					break;
 				default:
@@ -240,12 +257,11 @@ int main(int argc, char* argv[])
 						int c_y = e.motion.y / CELL_SIZE;
 						if (e.motion.state == SDL_BUTTON_LMASK) {
 							cells[c_y][c_x].type = selected_cell;
-
 							if (selected_cell == WATER) {
 								cells[c_y][c_x].fill_level += default_fill;
-								if (cells[c_y][c_x].fill_level > 1.0f) {
-									cells[c_y][c_x].fill_level = 1.0f;
-								}
+								// if (cells[c_y][c_x].fill_level > 1.0f) {
+								// 	cells[c_y][c_x].fill_level = 1.0f;
+								// }
 							} else {
 								cells[c_y][c_x].fill_level = 0.0f;
 							}
@@ -264,9 +280,9 @@ int main(int argc, char* argv[])
 
 							if (selected_cell == WATER) {
 								cells[c_y][c_x].fill_level += default_fill;
-								if (cells[c_y][c_x].fill_level > 1.0f) {
-									cells[c_y][c_x].fill_level = 1.0f;
-								}
+								// if (cells[c_y][c_x].fill_level > 1.0f) {
+								// 	cells[c_y][c_x].fill_level = 1.0f;
+								// }
 							} else {
 								cells[c_y][c_x].fill_level = 0.0f;
 							}
@@ -294,7 +310,7 @@ int main(int argc, char* argv[])
 		draw_cells(renderer, cells);
 
 		SDL_RenderPresent(renderer);
-		SDL_Delay(17);
+		SDL_Delay(34);
 	}
 
 	SDL_DestroyRenderer(renderer);
